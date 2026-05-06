@@ -5,6 +5,7 @@ import DashboardNavBar from "../../components/NavBar/DashboardNavBar";
 import { useToast } from "../../context/ToastContext";
 import { reportsAPI } from "../../services/api";
 import "./PersonalDashboard.css";
+import Panel from "../../components/Panel";
 
 export default function PersonalDashboard() {
   const toast = useToast();
@@ -164,6 +165,35 @@ export default function PersonalDashboard() {
               <span className="panel-title">Financial Overview</span>
               <Link to="/myGroups" className="see-all">See All ›</Link>
             </div>
+            {/*====================================================================================*/}
+            <div className="panel-dynamic-grid">
+  <Panel
+    title="Total Contributions"
+    value={`P${summary?.totalContributions?.toLocaleString("en-BW") ?? "0"}`}
+    subtitle={`${summary?.contributionStatus?.paid ?? 0} months paid`}
+  />
+
+  <Panel
+    title="Loan Balance"
+    value={`P${summary?.totalLoanBalance?.toLocaleString("en-BW") ?? "0"}`}
+    subtitle="Outstanding loans"
+  />
+
+  <Panel
+    title="Interest Raised"
+    value={`P${Math.round(summary?.totalInterestRaised ?? 0).toLocaleString("en-BW")}`}
+    subtitle="System earnings"
+  />
+
+  <Panel
+    title="Borrowing Limit"
+    value={`P${Math.round(summary?.borrowingLimit ?? 0).toLocaleString("en-BW")}`}
+    subtitle="Available credit"
+  />
+</div>
+
+            {/*======================================================================================*/}
+            
             <div className="bills-grid">
               {billCards.map((card) => (
                 <div key={card.label} className="bill-card">
@@ -192,6 +222,24 @@ export default function PersonalDashboard() {
                   {label}
                 </div>
               ))}
+              {/*===============================================================*/}
+              <div className="panel-dynamic-grid">
+  <Panel
+    title="Paid"
+    value={summary?.contributionStatus?.paid ?? 0}
+  />
+
+  <Panel
+    title="Pending"
+    value={summary?.contributionStatus?.pending ?? 0}
+  />
+
+  <Panel
+    title="Not Paid"
+    value={summary?.contributionStatus?.notPaid ?? 0}
+  />
+</div>
+              {/*=====================================================*/}
             </div>
             <div className="gauge-wrap">
               <svg width="200" height="120" viewBox="0 0 200 120">
@@ -243,6 +291,21 @@ export default function PersonalDashboard() {
               <span className="alloc-change">↑ 20% interest/month</span>
             </div>
 
+            {/*===============================================================================================*/}
+            <div className="panel-dynamic-grid">
+  <Panel
+    title="Active Loans"
+    value={loans?.length ?? 0}
+  />
+
+  <Panel
+    title="Total Balance"
+    value={`P${summary?.totalLoanBalance?.toLocaleString("en-BW") ?? "0"}`}
+  />
+</div>
+
+            {/*========================================================================================*/}
+
             {loans.length > 0 ? (
               <>
                 <table className="alloc-table">
@@ -270,6 +333,21 @@ export default function PersonalDashboard() {
           </div>
 
           {/* Recent Activity */}
+
+          {/*===========================================================================================================================*/}
+          <div className="panel-dynamic-grid">
+  <Panel
+    title="Total Activities"
+    value={(dashboardData?.activities?.length ?? 0)}
+  />
+
+  <Panel
+    title="Groups"
+    value={groups?.length ?? 0}
+  />
+</div>
+          {/*============================================================================================================================*/}
+          
           <div className="panel">
             <div className="txn-header">
               <span className="panel-title">My Activity</span>

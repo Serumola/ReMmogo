@@ -47,13 +47,21 @@ exports.requestToJoin = async (req, res) => {
       [groupId]
     );
 
+    // Get user's name (fallback to database if not in JWT)
+    const userName = req.user.firstName && req.user.lastName 
+      ? `${req.user.firstName} ${req.user.lastName}`
+      : await (async () => {
+          const userResult = await db.query("SELECT firstname, lastname FROM users WHERE userid = $1", [req.user.id]);
+          return userResult.rows[0] ? `${userResult.rows[0].firstname} ${userResult.rows[0].lastname}` : 'A user';
+        })();
+
     const notificationPromises = signatories.rows.map(async (sig) => {
       await db.query(
         `INSERT INTO notifications (userid, type, title, message, relatedid, groupid)
          VALUES ($1, 'join_request', 'New Join Request', $2, $3, $4)`,
         [
           sig.userid,
-          `${req.user.firstname} ${req.user.lastname} wants to join ${groupCheck.rows[0].groupname}`,
+          `${userName} wants to join ${groupCheck.rows[0].groupname}`,
           result.rows[0].requestid,
           groupId
         ]

@@ -41,14 +41,14 @@ exports.requestLoan = async (req, res) => {
 
     // Create the loan
     const result = await db.query(
-      `INSERT INTO loans (groupid, borrowermemberid, principalamount, interestrate, outstandingbalance, notes, status)
+      `INSERT INTO loans (groupid, borrowermemberid, principalamount, interestrate, outstandingbalance, purpose, status)
        VALUES ($1, $2, $3, $4, $5, $6, 'pending_approval') RETURNING *`,
       [groupId, borrowerMemberID, principalAmount, interestRate, principalAmount, notes || null]
     );
 
     console.log('✅ Loan created:', result.rows[0].loanid);
 
-    // Create notification for all signatories of the group
+    // Create notification for all signatories of the group (optional - don't fail if this fails)
     try {
       const signatories = await db.query(
         `SELECT gm.userid, gm.memberid FROM groupmembers gm

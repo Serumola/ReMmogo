@@ -91,6 +91,8 @@ export const membersAPI = {
   getAll: (groupId) => apiRequest(`/members/${groupId}`),
   getSignatories: (groupId) => apiRequest(`/members/${groupId}/signatories`),
   getOne: (id) => apiRequest(`/members/${id}`),
+  getAllUsers: () => apiRequest('/members/users'),
+  invite: (groupId, userId, role) => apiRequest('/members/invite', { method: 'POST', body: JSON.stringify({ groupId, userId, role }) }),
   create: (groupId, action = 'enroll', data) => {
     if (action === 'join') {
       return apiRequest(`/members/${groupId}/join`, { method: 'POST', body: JSON.stringify(data) });

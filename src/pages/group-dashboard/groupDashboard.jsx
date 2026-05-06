@@ -29,6 +29,10 @@ export default function GroupDashboard() {
   const [contributions, setContributions] = useState([]);
   const [loans, setLoans] = useState([]);
   const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ userId: '', role: 'member' });
+  const [inviting, setInviting] = useState(false);
 
   useEffect(() => {
     if (groupId) {
@@ -60,6 +64,12 @@ export default function GroupDashboard() {
       const signatoriesRes = await membersAPI.getSignatories(groupId);
       if (signatoriesRes.success && signatoriesRes.data) {
         setSignatories(signatoriesRes.data);
+      }
+
+      // Fetch all users for invite modal
+      const usersRes = await membersAPI.getAllUsers();
+      if (usersRes.success && usersRes.data) {
+        setAllUsers(usersRes.data);
       }
 
       // Fetch contributions
@@ -161,6 +171,31 @@ export default function GroupDashboard() {
       }
     } catch (err) {
       toast.error('Failed to reject. Please try again.');
+    }
+  };
+
+  const handleInvite = async () => {
+    if (!inviteForm.userId) {
+      toast.error('Please select a user to invite');
+      return;
+    }
+
+    try {
+      setInviting(true);
+      const response = await membersAPI.invite(groupId, inviteForm.userId, inviteForm.role);
+      
+      if (response.success) {
+        toast.success(`User invited as ${inviteForm.role}`);
+        setShowInvite(false);
+        setInviteForm({ userId: '', role: 'member' });
+        fetchGroupData(); // Refresh members list
+      } else {
+        toast.error(response.error || 'Failed to invite user');
+      }
+    } catch (err) {
+      toast.error('Failed to invite user');
+    } finally {
+      setInviting(false);
     }
   };
 
@@ -292,7 +327,14 @@ export default function GroupDashboard() {
           {tab === 'Members' && (
             <div className="gd-tab-content">
               <div className="gd-panel">
-                <div className="gd-panel-title">All Members ({members.length})</div>
+                <div className="gd-panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>All Members ({members.length})</span>
+                  {group && (group.role === 'admin' || group.role === 'signatory') && (
+                    <button className="gd-btn-primary" onClick={() => setShowInvite(true)} style={{ padding: '8px 16px', fontSize: '12px' }}>
+                      + Invite Member
+                    </button>
+                  )}
+                </div>
                 <table className="gd-table">
                   <thead>
                     <tr>
@@ -434,6 +476,54 @@ export default function GroupDashboard() {
             </div>
           )}
 
+          {/* Invite Member Modal */}
+          {showInvite && (
+            <div className="gd-modal-overlay" onClick={() => setShowInvite(false)}>
+              <div className="gd-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="gd-modal-header">
+                  <span>Invite Member</span>
+                  <button className="gd-modal-close" onClick={() => setShowInvite(false)}>✕</button>
+                </div>
+                <div className="gd-modal-body">
+                  <div className="form-group">
+                    <label>Select User</label>
+                    <select 
+                      className="form-select"
+                      value={inviteForm.userId}
+                      onChange={(e) => setInviteForm({ ...inviteForm, userId: e.target.value })}
+                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #e0ddd5' }}
+                    >
+                      <option value="">Choose a user to invite...</option>
+                      {allUsers.filter(u => !members.find(m => m.userid === u.userid)).map(user => (
+                        <option key={user.userid} value={user.userid}>
+                          {user.firstname} {user.lastname} ({user.email})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Role</label>
+                    <select 
+                      className="form-select"
+                      value={inviteForm.role}
+                      onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}
+                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #e0ddd5' }}
+                    >
+                      <option value="member">Member</option>
+                      <option value="signatory">Signatory</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div className="gd-modal-actions">
+                    <button className="gd-modal-cancel" onClick={() => setShowInvite(false)}>Cancel</button>
+                    <button className="gd-modal-submit" onClick={handleInvite} disabled={inviting}>
+                      {inviting ? 'Inviting...' : 'Send Invite'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

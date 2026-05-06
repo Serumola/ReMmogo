@@ -1,7 +1,83 @@
 const { db } = require("../config/db");
 
-// REQUEST TO JOIN GROUP (creates pending membership request)
-exports.requestToJoin = async (req, res) => {
+// GET ALL USERS (for inviting to groups)
+exports.getAllUsers = async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT userid, firstname, lastname, email, phonenumber, isactive
+       FROM users
+       WHERE isactive = true
+       ORDER BY firstname, lastname`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// INVITE USER TO GROUP
+exports.inviteUserToGroup = async (req, res) => {
+  const { groupId, userId, role } = req.body;
+
+  if (!groupId || !userId) {
+    return res.status(400).json({ error: "groupId and userId are required" });
+  }
+
+  try {
+    // Check if inviter is signatory/admin of the group
+    const inviterCheck = await db.query(
+      `SELECT 1 FROM groupmembers
+       WHERE userid = $1 AND groupid = $2 AND role IN ('signatory', 'admin') AND isactive = true`,
+      [req.user.id, groupId]
+    );
+
+    if (inviterCheck.rows.length === 0) {
+      return res.status(403).json({ error: "Only signatories can invite users" });
+    }
+
+    // Check if user is already a member
+    const existingMember = await db.query(
+      "SELECT memberid FROM groupmembers WHERE groupid = $1 AND userid = $2 AND isactive = true",
+      [groupId, userId]
+    );
+
+    if (existingMember.rows.length > 0) {
+      return res.status(400).json({ error: "User is already a member of this group" });
+    }
+
+    // Add user directly as member (no approval needed for invites)
+    const memberResult = await db.query(
+      `INSERT INTO groupmembers (groupid, userid, role, joindate, isactive)
+       VALUES ($1, $2, $3, CURRENT_DATE, true)
+       ON CONFLICT (groupid, userid) DO UPDATE SET isactive = true, role = $3
+       RETURNING memberid`,
+      [groupId, userId, role || 'member']
+    );
+
+    // Get group name and invited user name
+    const groupResult = await db.query("SELECT groupname FROM motshelogroups WHERE groupid = $1", [groupId]);
+    const invitedUserResult = await db.query("SELECT firstname, lastname FROM users WHERE userid = $1", [userId]);
+
+    // Create notification for the invited user
+    await db.query(
+      `INSERT INTO notifications (userid, type, title, message, relatedid, groupid)
+       VALUES ($1, 'group_invite', 'Group Invitation', $2, $3, $4)`,
+      [
+        userId,
+        `You have been invited to join ${groupResult.rows[0].groupname} as ${role || 'member'}`,
+        memberResult.rows[0].memberid,
+        groupId
+      ]
+    );
+
+    res.json({ 
+      message: `User invited successfully as ${role || 'member'}`,
+      memberId: memberResult.rows[0].memberid
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
   const { groupId } = req.params;
   const { message } = req.body;
 
@@ -48,11 +124,13 @@ exports.requestToJoin = async (req, res) => {
     );
 
     // Get user's name (fallback to database if not in JWT)
-    const userName = req.user.firstName && req.user.lastName 
+    // JWT uses camelCase: firstName, lastName
+    const userName = (req.user.firstName && req.user.lastName) 
       ? `${req.user.firstName} ${req.user.lastName}`
       : await (async () => {
           const userResult = await db.query("SELECT firstname, lastname FROM users WHERE userid = $1", [req.user.id]);
-          return userResult.rows[0] ? `${userResult.rows[0].firstname} ${userResult.rows[0].lastname}` : 'A user';
+          const user = userResult.rows[0];
+          return user ? `${user.firstname} ${user.lastname}` : 'A user';
         })();
 
     const notificationPromises = signatories.rows.map(async (sig) => {

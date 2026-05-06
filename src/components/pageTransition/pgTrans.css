@@ -1,9 +1,0 @@
-/* index.css or App.css */
-.transition-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: #2e7d32;   /* your Re-Mmogo green */
-  z-index: 9999;
-  transform: translateY(100%); /* hidden below screen by default */
-  pointer-events: none;
-}

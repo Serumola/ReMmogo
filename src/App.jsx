@@ -13,7 +13,6 @@ import CreateGroup from "./pages/CreateGroup/Creategroup";
 import GroupDashboard from "./pages/group-dashboard/groupDashboard";
 import SettingsPage from "./pages/settings/SettingsPage";
 import SupportPage from "./pages/support/SupportPage";
-import PageTransition from "./components/pageTransition/pgTrans";
 import './App.css';
 
 function App() {

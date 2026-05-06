@@ -50,6 +50,57 @@ export default function PersonalDashboard() {
     }
   };
 
+  const getActivityIcon = (type, status) => {
+    if (type === 'contribution') {
+      if (status === 'paid' || status === 'approved') return '💵';
+      if (status === 'pending' || status === 'submitted') return '⏳';
+      return '📋';
+    }
+    if (type === 'loan') {
+      if (status === 'disbursed' || status === 'active') return '💰';
+      if (status === 'approved') return '✅';
+      if (status === 'pending_approval' || status === 'pending') return '⏳';
+      if (status === 'rejected') return '❌';
+      return '📋';
+    }
+    return '📌';
+  };
+
+  const getActivityAction = (item) => {
+    if (item.type === 'contribution') {
+      if (item.status === 'paid' || item.status === 'approved') return 'Contribution paid';
+      if (item.status === 'pending' || item.status === 'submitted') return 'Contribution submitted';
+      return 'Contribution recorded';
+    }
+    if (item.type === 'loan') {
+      if (item.status === 'disbursed' || item.status === 'active') return 'Loan disbursed';
+      if (item.status === 'approved') return 'Loan approved';
+      if (item.status === 'pending_approval' || item.status === 'pending') return 'Loan requested';
+      if (item.status === 'rejected') return 'Loan rejected';
+      return 'Loan activity';
+    }
+    return 'Activity';
+  };
+
+  const getActivityAmount = (item) => {
+    if (item.type === 'contribution') {
+      return parseFloat(item.amountpaid) || 0;
+    }
+    if (item.type === 'loan') {
+      return parseFloat(item.principalamount) || 0;
+    }
+    return 0;
+  };
+
+  const getActivityDate = (item) => {
+    const dateStr = item.type === 'contribution' 
+      ? (item.submittedat || item.updatedat || item.createdat)
+      : (item.disbursedat || item.requestedat || item.createdat);
+    
+    if (!dateStr) return 'Unknown';
+    return new Date(dateStr).toLocaleDateString("en-GB", { month: "short", day: "numeric", year: 'numeric' });
+  };
+
   if (loading) {
     return (
       <div className="dash">
@@ -224,31 +275,69 @@ export default function PersonalDashboard() {
               <span className="panel-title">My Activity</span>
             </div>
 
-            {activities.length > 0 ? (
-              activities.map((activity, idx) => (
-                <div key={idx} className="txn-row">
-                  <div
-                    className="txn-icon"
-                    style={{ background: activity.type === "loan" ? "#fdf0e0" : "#e8f0e0" }}
-                  />
-                  <div className="txn-info">
-                    <div className="txn-name">{activity.action}</div>
-                    <div className="txn-cat">{activity.group || 'Unknown Group'}</div>
-                  </div>
-                  <div className="txn-right">
-                    <div className={`txn-amount ${activity.amount > 0 ? "txn-positive" : ""}`}>
-                      {activity.type === 'loan' && activity.action.includes('disbursed') ? '+' : ''}
-                      P{activity.amount.toLocaleString()}
+            {(() => {
+              // Combine contributions and loans into activity feed
+              const allActivity = [];
+              
+              // Add contributions
+              (dashboardData?.contributions || []).forEach(c => {
+                allActivity.push({
+                  type: 'contribution',
+                  status: c.status,
+                  group: c.groupname,
+                  amount: parseFloat(c.amountpaid) || 0,
+                  date: c.submittedat || c.createdat
+                });
+              });
+              
+              // Add loans
+              (dashboardData?.loans || []).forEach(l => {
+                allActivity.push({
+                  type: 'loan',
+                  status: l.status,
+                  group: l.groupname,
+                  amount: parseFloat(l.principalamount) || 0,
+                  date: l.disbursedat || l.requestedat || l.createdat
+                });
+              });
+              
+              // Sort by date (most recent first)
+              allActivity.sort((a, b) => new Date(b.date) - new Date(a.date));
+              
+              const recentActivity = allActivity.slice(0, 10);
+
+              if (recentActivity.length > 0) {
+                return recentActivity.map((item, idx) => (
+                  <div key={idx} className="txn-row">
+                    <div
+                      className="txn-icon"
+                      style={{ 
+                        background: item.type === "loan" ? "#fdf0e0" : "#e8f0e0",
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '16px'
+                      }}
+                    >
+                      {getActivityIcon(item.type, item.status)}
                     </div>
-                    <div className="txn-date">
-                      {activity.date ? new Date(activity.date).toLocaleDateString("en-GB", { month: "short", day: "numeric" }) : 'Unknown'}
+                    <div className="txn-info">
+                      <div className="txn-name">{getActivityAction(item)}</div>
+                      <div className="txn-cat">{item.group || 'Unknown Group'}</div>
+                    </div>
+                    <div className="txn-right">
+                      <div className={`txn-amount ${item.amount > 0 ? "txn-positive" : ""}`}>
+                        P{item.amount.toLocaleString()}
+                      </div>
+                      <div className="txn-date">
+                        {getActivityDate(item)}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
-            ) : (
-              <div className="empty-state">No recent activity</div>
-            )}
+                ));
+              }
+              return <div className="empty-state">No recent activity</div>;
+            })()}
           </div>
         </div>
       </div>

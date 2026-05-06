@@ -56,7 +56,7 @@ export default function NotificationDropdown() {
     try {
       const response = await notificationsAPI.approveRequest(requestId);
       if (response.success) {
-        toast.success('Member approved successfully');
+        toast.success('Member approved and added to the group successfully');
         fetchNotifications();
       } else {
         toast.error(response.error || 'Failed to approve');

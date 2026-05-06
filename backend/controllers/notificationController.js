@@ -108,34 +108,107 @@ exports.getPendingMembershipRequests = async (req, res) => {
 // APPROVE MEMBERSHIP REQUEST
 exports.approveMembershipRequest = async (req, res) => {
   const { requestId } = req.params;
-  
+
+  console.log('📝 Approving membership request:', requestId, 'for user:', req.user.id);
+
   try {
-    // Get request details to find group
+    // Get request details to find group and user
     const requestCheck = await db.query(
-      `SELECT groupid FROM membershiprequests WHERE requestid = $1`,
+      `SELECT groupid, userid FROM membershiprequests WHERE requestid = $1`,
       [requestId]
     );
-    
+
+    console.log('📊 Request check:', requestCheck.rows);
+
     if (requestCheck.rows.length === 0) {
+      console.log('❌ Request not found');
       return res.status(404).json({ error: "Request not found" });
     }
-    
+
     const groupId = requestCheck.rows[0].groupid;
-    
+    const joiningUserId = requestCheck.rows[0].userid;
+
     // Check if user is a signatory of this group
     const signatoryCheck = await db.query(
-      `SELECT 1 FROM groupmembers 
+      `SELECT 1 FROM groupmembers
        WHERE userid = $1 AND groupid = $2 AND role IN ('signatory', 'admin') AND isactive = true`,
       [req.user.id, groupId]
     );
-    
+
+    console.log('📊 Signatory check:', signatoryCheck.rows.length > 0);
+
     if (signatoryCheck.rows.length === 0) {
+      console.log('❌ User is not a signatory');
       return res.status(403).json({ error: "Only signatories can approve requests" });
     }
-    
-    await db.query("SELECT sp_approve_membership_request($1, $2)", [requestId, req.user.id]);
-    res.json({ message: "Membership request approved" });
+
+    // Get the joining user's name for the notification
+    const joiningUserResult = await db.query(
+      `SELECT firstname, lastname FROM users WHERE userid = $1`,
+      [joiningUserId]
+    );
+    const joiningUserName = joiningUserResult.rows[0];
+
+    // Add user as member of the group with role 'member'
+    const memberResult = await db.query(
+      `INSERT INTO groupmembers (groupid, userid, role, joindate, isactive)
+       VALUES ($1, $2, 'member', CURRENT_DATE, true)
+       ON CONFLICT (groupid, userid) DO UPDATE SET isactive = true, role = 'member'
+       RETURNING memberid`,
+      [groupId, joiningUserId]
+    );
+
+    console.log('✅ User added to group with memberid:', memberResult.rows[0].memberid);
+
+    // Update request status
+    await db.query(
+      `UPDATE membershiprequests
+       SET status = 'approved', reviewedat = NOW(), reviewedby = $1, reviewnote = 'Approved by signatory'
+       WHERE requestid = $2`,
+      [req.user.id, requestId]
+    );
+
+    // Create group chat conversation for the new member
+    try {
+      await db.query(
+        `INSERT INTO conversations (groupid, createdby, createdat)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (groupid) DO NOTHING`,
+        [groupId, req.user.id]
+      );
+
+      await db.query(
+        `INSERT INTO conversation_members (conversationid, userid, joinedat)
+         SELECT conversationid, $1, NOW() FROM conversations WHERE groupid = $2
+         ON CONFLICT (conversationid, userid) DO NOTHING`,
+        [joiningUserId, groupId]
+      );
+      console.log('✅ Added user to group conversation');
+    } catch (chatErr) {
+      console.error('⚠️ Could not add to conversation:', chatErr.message);
+    }
+
+    // Create notification for the approved user
+    await db.query(
+      `INSERT INTO notifications (userid, type, title, message, relatedid, groupid)
+       VALUES ($1, 'membership_approved', 'Join Request Approved', $2, $3, $4)`,
+      [
+        joiningUserId,
+        `Your request to join the group has been approved! Welcome aboard!`,
+        requestId,
+        groupId
+      ]
+    );
+
+    console.log('✅ Membership approved and user notified');
+
+    res.json({ 
+      message: "Membership request approved. User has been added to the group.",
+      memberId: memberResult.rows[0].memberid
+    });
   } catch (err) {
+    console.error('❌ Error approving membership:', err.message);
+    console.error('Stack:', err.stack);
     res.status(500).json({ error: err.message });
   }
 };

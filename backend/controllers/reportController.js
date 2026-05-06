@@ -15,31 +15,31 @@ exports.getDashboard = async (req, res) => {
       [userId]
     );
 
-    // Get user's contributions across all groups
+    // Get user's contributions across all groups - FIXED QUERY
     const contributions = await db.query(
-      `SELECT mc.*, mg.groupname, gm.memberid
+      `SELECT mc.*, mg.groupname, gm.memberid, gm.userid
        FROM monthlycontributions mc
        INNER JOIN groupmembers gm ON gm.memberid = mc.memberid
        INNER JOIN motshelogroups mg ON mg.groupid = mc.groupid
        WHERE gm.userid = $1
-       ORDER BY mc.submittedat DESC`,
+       ORDER BY COALESCE(mc.submittedat, mc.updatedat, mc.createdat) DESC`,
       [userId]
     );
 
-    // Get user's loans across all groups
+    // Get user's loans across all groups - FIXED QUERY
     const loans = await db.query(
-      `SELECT l.*, mg.groupname, gm.memberid as borrowermemberid
+      `SELECT l.*, mg.groupname, gm.memberid as borrowermemberid, gm.userid
        FROM loans l
        INNER JOIN groupmembers gm ON gm.memberid = l.borrowermemberid
        INNER JOIN motshelogroups mg ON mg.groupid = l.groupid
        WHERE gm.userid = $1
-       ORDER BY l.createdat DESC`,
+       ORDER BY COALESCE(l.disbursedat, l.requestedat, l.createdat) DESC`,
       [userId]
     );
 
     // Calculate totals
     const totalContributions = contributions.rows
-      .filter(c => c.status === 'paid')
+      .filter(c => c.status === 'paid' || c.status === 'approved')
       .reduce((sum, c) => sum + (parseFloat(c.amountpaid) || 0), 0);
 
     const totalLoanBalance = loans.rows
@@ -54,7 +54,7 @@ exports.getDashboard = async (req, res) => {
 
     // Contribution status breakdown
     const contributionStatus = {
-      paid: contributions.rows.filter(c => c.status === 'paid').length,
+      paid: contributions.rows.filter(c => c.status === 'paid' || c.status === 'approved').length,
       pending: contributions.rows.filter(c => c.status === 'pending' || c.status === 'submitted').length,
       notPaid: contributions.rows.filter(c => c.status === 'not_paid' || !c.status).length
     };

@@ -4,6 +4,7 @@ const { db } = require("../config/db");
 exports.getDashboard = async (req, res) => {
   try {
     const userId = req.user.id;
+    console.log('📊 Dashboard request for userId:', userId);
 
     // Get user's groups
     const userGroups = await db.query(
@@ -14,6 +15,7 @@ exports.getDashboard = async (req, res) => {
        WHERE gm.userid = $1 AND gm.isactive = true AND mg.isactive = true`,
       [userId]
     );
+    console.log('✅ User groups:', userGroups.rows.length);
 
     // Get user's contributions across all groups - FIXED QUERY
     const contributions = await db.query(
@@ -25,6 +27,7 @@ exports.getDashboard = async (req, res) => {
        ORDER BY COALESCE(mc.submittedat, mc.updatedat, mc.createdat) DESC`,
       [userId]
     );
+    console.log('✅ User contributions:', contributions.rows.length);
 
     // Get user's loans across all groups - FIXED QUERY
     const loans = await db.query(
@@ -36,6 +39,7 @@ exports.getDashboard = async (req, res) => {
        ORDER BY COALESCE(l.disbursedat, l.requestedat, l.createdat) DESC`,
       [userId]
     );
+    console.log('✅ User loans:', loans.rows.length);
 
     // Calculate totals
     const totalContributions = contributions.rows
@@ -111,8 +115,9 @@ exports.getDashboard = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error("Error fetching dashboard data:", err);
-    res.status(500).json({ error: err.message });
+    console.error("❌ Error fetching dashboard data:", err);
+    console.error("Stack trace:", err.stack);
+    res.status(500).json({ error: err.message, stack: err.stack });
   }
 };
 

@@ -180,6 +180,8 @@ exports.rejectMembershipRequest = async (req, res) => {
 exports.approveLoanRequest = async (req, res) => {
   const { loanId } = req.params;
 
+  console.log('📝 Approving loan:', loanId, 'for user:', req.user.id);
+
   try {
     // Get loan details to find group
     const loanCheck = await db.query(
@@ -187,7 +189,10 @@ exports.approveLoanRequest = async (req, res) => {
       [loanId]
     );
 
+    console.log('📊 Loan check result:', loanCheck.rows);
+
     if (loanCheck.rows.length === 0) {
+      console.log('❌ Loan not found');
       return res.status(404).json({ error: "Loan request not found" });
     }
 
@@ -200,7 +205,10 @@ exports.approveLoanRequest = async (req, res) => {
       [req.user.id, groupId]
     );
 
+    console.log('📊 Signatory check:', signatoryCheck.rows.length > 0);
+
     if (signatoryCheck.rows.length === 0) {
+      console.log('❌ User is not a signatory');
       return res.status(403).json({ error: "Only signatories can approve loan requests" });
     }
 
@@ -211,6 +219,7 @@ exports.approveLoanRequest = async (req, res) => {
     );
 
     if (borrowerCheck.rows.length > 0) {
+      console.log('❌ User cannot approve their own loan');
       return res.status(403).json({ error: "You cannot approve your own loan request" });
     }
 
@@ -220,9 +229,11 @@ exports.approveLoanRequest = async (req, res) => {
       [loanId]
     );
 
+    console.log('✅ Loan approved and disbursed:', loanId);
+
     // Get borrower info for notification
     const borrowerResult = await db.query(
-      `SELECT u.firstname, u.lastname FROM groupmembers gm
+      `SELECT u.userid, u.firstname, u.lastname FROM groupmembers gm
        JOIN users u ON u.userid = gm.userid
        WHERE gm.memberid = $1`,
       [loanCheck.rows[0].borrowermemberid]
@@ -231,19 +242,24 @@ exports.approveLoanRequest = async (req, res) => {
     const borrower = borrowerResult.rows[0];
 
     // Create notification for borrower
-    await db.query(
-      `INSERT INTO notifications (userid, type, title, message, relatedid, groupid)
-       VALUES ($1, 'loan_approved', 'Loan Approved', $2, $3, $4)`,
-      [
-        borrowerResult.rows[0] ? req.user.id : loanCheck.rows[0].borrowermemberid,
-        `Your loan request has been approved and disbursed.`,
-        loanId,
-        groupId
-      ]
-    );
+    if (borrower) {
+      await db.query(
+        `INSERT INTO notifications (userid, type, title, message, relatedid, groupid)
+         VALUES ($1, 'loan_approved', 'Loan Approved', $2, $3, $4)`,
+        [
+          borrower.userid,
+          `Your loan request has been approved and disbursed.`,
+          loanId,
+          groupId
+        ]
+      );
+      console.log('✅ Notification sent to borrower');
+    }
 
     res.json({ message: "Loan request approved and disbursed" });
   } catch (err) {
+    console.error('❌ Error approving loan:', err.message);
+    console.error('Stack:', err.stack);
     res.status(500).json({ error: err.message });
   }
 };

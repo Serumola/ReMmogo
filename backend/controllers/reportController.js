@@ -24,7 +24,7 @@ exports.getDashboard = async (req, res) => {
        INNER JOIN groupmembers gm ON gm.memberid = mc.memberid
        INNER JOIN motshelogroups mg ON mg.groupid = mc.groupid
        WHERE gm.userid = $1
-       ORDER BY COALESCE(mc.submittedat, mc.updatedat, mc.createdat) DESC`,
+       ORDER BY COALESCE(mc.submittedat, mc.updatedat) DESC`,
       [userId]
     );
     console.log('✅ User contributions:', contributions.rows.length);
@@ -36,7 +36,7 @@ exports.getDashboard = async (req, res) => {
        INNER JOIN groupmembers gm ON gm.memberid = l.borrowermemberid
        INNER JOIN motshelogroups mg ON mg.groupid = l.groupid
        WHERE gm.userid = $1
-       ORDER BY COALESCE(l.disbursedat, l.requestedat, l.createdat) DESC`,
+       ORDER BY COALESCE(l.disbursedat, l.requestedat, l.updatedat) DESC`,
       [userId]
     );
     console.log('✅ User loans:', loans.rows.length);

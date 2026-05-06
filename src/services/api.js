@@ -179,7 +179,7 @@ export const notificationsAPI = {
   markAsRead: (notificationId) => apiRequest(`/notifications/${notificationId}/read`, { method: 'POST' }),
   markAllAsRead: () => apiRequest('/notifications/mark-all-read', { method: 'POST' }),
   getPendingRequests: (groupId) => apiRequest(`/notifications/membership-requests/${groupId}`),
-  approveRequest: (requestId) => apiRequest(`/notifications/membership-requests/${requestId}/approve`, { method: 'POST' }),
+  approveRequest: (requestId, role = 'member') => apiRequest(`/notifications/membership-requests/${requestId}/approve`, { method: 'POST', body: JSON.stringify({ role }) }),
   rejectRequest: (requestId, reason) => apiRequest(`/notifications/membership-requests/${requestId}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
   approveLoan: (loanId) => apiRequest(`/notifications/loan-requests/${loanId}/approve`, { method: 'POST' }),
   rejectLoan: (loanId, reason) => apiRequest(`/notifications/loan-requests/${loanId}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),

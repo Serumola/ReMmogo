@@ -108,8 +108,9 @@ exports.getPendingMembershipRequests = async (req, res) => {
 // APPROVE MEMBERSHIP REQUEST
 exports.approveMembershipRequest = async (req, res) => {
   const { requestId } = req.params;
+  const { role } = req.body; // Get role from request body
 
-  console.log('📝 Approving membership request:', requestId, 'for user:', req.user.id);
+  console.log('📝 Approving membership request:', requestId, 'for user:', req.user.id, 'with role:', role);
 
   try {
     // Get request details to find group and user
@@ -149,16 +150,16 @@ exports.approveMembershipRequest = async (req, res) => {
     );
     const joiningUserName = joiningUserResult.rows[0];
 
-    // Add user as member of the group with role 'member'
+    // Add user as member of the group with selected role
     const memberResult = await db.query(
       `INSERT INTO groupmembers (groupid, userid, role, joindate, isactive)
-       VALUES ($1, $2, 'member', CURRENT_DATE, true)
-       ON CONFLICT (groupid, userid) DO UPDATE SET isactive = true, role = 'member'
+       VALUES ($1, $2, $3, CURRENT_DATE, true)
+       ON CONFLICT (groupid, userid) DO UPDATE SET isactive = true, role = $3
        RETURNING memberid`,
-      [groupId, joiningUserId]
+      [groupId, joiningUserId, role || 'member']
     );
 
-    console.log('✅ User added to group with memberid:', memberResult.rows[0].memberid);
+    console.log('✅ User added to group with memberid:', memberResult.rows[0].memberid, 'as', role || 'member');
 
     // Update request status
     await db.query(
@@ -194,7 +195,7 @@ exports.approveMembershipRequest = async (req, res) => {
        VALUES ($1, 'membership_approved', 'Join Request Approved', $2, $3, $4)`,
       [
         joiningUserId,
-        `Your request to join the group has been approved! Welcome aboard!`,
+        `Your request to join ${groupId === requestCheck.rows[0].groupid ? 'the group' : 'the group'} has been approved! Welcome aboard!`,
         requestId,
         groupId
       ]
@@ -203,7 +204,7 @@ exports.approveMembershipRequest = async (req, res) => {
     console.log('✅ Membership approved and user notified');
 
     res.json({ 
-      message: "Membership request approved. User has been added to the group.",
+      message: `Membership request approved. User has been added as ${role || 'member'}.`,
       memberId: memberResult.rows[0].memberid
     });
   } catch (err) {

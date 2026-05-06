@@ -52,12 +52,15 @@ export default function NotificationDropdown() {
     }
   };
 
-  const handleApproveRequest = async (requestId) => {
+  const [joinRequestAction, setJoinRequestAction] = useState(null); // { requestId, selectedRole }
+
+  const handleApproveRequest = async (requestId, role = 'member') => {
     try {
-      const response = await notificationsAPI.approveRequest(requestId);
+      const response = await notificationsAPI.approveRequest(requestId, role);
       if (response.success) {
-        toast.success('Member approved and added to the group successfully');
-        fetchNotifications();
+        toast.success(`Member approved as ${role}`);
+        setJoinRequestAction(null);
+        fetchNotifications(); // Refresh to remove the approved notification
       } else {
         toast.error(response.error || 'Failed to approve');
       }
@@ -203,13 +206,23 @@ export default function NotificationDropdown() {
                     )}
 
                     {/* Action buttons for join requests */}
-                    {n.type === 'join_request' && !n.isread && (
+                    {n.type === 'join_request' && !n.isread && joinRequestAction?.requestId !== n.relatedid && (
                       <div className="nd-actions">
+                        <select 
+                          className="nd-role-select"
+                          value={joinRequestAction?.selectedRole || 'member'}
+                          onChange={(e) => setJoinRequestAction({ requestId: n.relatedid, selectedRole: e.target.value })}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <option value="member">Member</option>
+                          <option value="signatory">Signatory</option>
+                          <option value="admin">Admin</option>
+                        </select>
                         <button
                           className="nd-approve-btn"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleApproveRequest(n.relatedid);
+                            handleApproveRequest(n.relatedid, joinRequestAction?.selectedRole || 'member');
                           }}
                         >
                           Approve
@@ -223,6 +236,13 @@ export default function NotificationDropdown() {
                         >
                           Reject
                         </button>
+                      </div>
+                    )}
+
+                    {/* Show approving status */}
+                    {n.type === 'join_request' && !n.isread && joinRequestAction?.requestId === n.relatedid && (
+                      <div className="nd-actions">
+                        <span className="nd-approving-text">Approving as {joinRequestAction.selectedRole}...</span>
                       </div>
                     )}
 

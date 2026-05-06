@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Bell } from 'lucide-react';
 import './NotificationDropdown.css';
 import { useToast } from '../../context/ToastContext';
@@ -9,7 +9,25 @@ export default function NotificationDropdown() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const dropdownRef = useRef(null);
   const toast = useToast();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -154,11 +172,10 @@ export default function NotificationDropdown() {
   };
 
   return (
-    <div className="NotificationDropdown">
+    <div className="NotificationDropdown" ref={dropdownRef}>
       <button
         className="nd-toggle"
         onClick={() => setIsOpen(!isOpen)}
-        onBlur={() => setTimeout(() => setIsOpen(false), 200)}
       >
         <Bell size={18} />
         {unreadCount > 0 && (
